@@ -1,0 +1,25 @@
+.DS_Store
+*.opannotate
+*.opreport
+tags
+*.o
+*.swp
+.svn
+*.pyc
+*pb2.py
+.message_history
+
+# 协议文件
+src/message/*.pb.h
+src/message/*.pb.cc
+src/base/platform.h
+.ycm_extra_conf.py
+
+# 测试环境
+appbin/*
+bin
+bin/*
+lib/*
+build/*
+include/*
+protocol
