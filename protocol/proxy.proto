@@ -1,0 +1,64 @@
+package msg.proxy;
+
+enum Command
+{
+	eMessage_Variable 		= 0x0001;	// 服务器参数
+	eMessage_Insert 		= 0x0011;	// 插入SQL命令
+	eMessage_Query 			= 0x0012;	// 查询SQL命令
+	eMessage_Update 		= 0x0013;	// 更新SQL命令
+	eMessage_Remove 		= 0x0014;	// 删除SQL命令
+	eMessage_AutoIncrease 	= 0x0021;	// 自增索引返回
+	eMessage_Results 		= 0x0022;	// SQL结果集返回
+};
+
+message MessageProxyVariable
+{
+	optional Command		id 		= 1 [ default = eMessage_Variable ];
+	required string 		version	= 2;	// 服务器版本号
+	required uint32 		nthreads= 3;	// SQL线程个数
+};
+
+message MessageInsertSqlCmd
+{
+	optional Command 		id 		= 1 [ default = eMessage_Insert ];
+	required uint32 		index 	= 2;	// 执行的线程索引
+	required string 		sqlcmd 	= 3;	// SQL语句
+};
+
+message MessageQuerySqlCmd
+{
+	optional Command 		id 		= 1 [ default = eMessage_Query ];
+	required uint32 		index 	= 2;	// 执行的线程索引
+	required string 		sqlcmd 	= 3;	// SQL语句
+};
+
+message MessageUpdateSqlCmd
+{
+	optional Command 		id 		= 1 [ default = eMessage_Update ];
+	required uint32 		index 	= 2;	// 执行的线程索引
+	required string 		sqlcmd 	= 3;	// SQL语句
+};
+
+message MessageRemoveSqlCmd
+{
+	optional Command 		id 		= 1 [ default = eMessage_Remove ];
+	required uint32 		index 	= 2;	// 执行的线程索引
+	required string 		sqlcmd 	= 3;	// SQL语句
+};
+
+message MessageAutoIncrement
+{
+	optional Command 		id 		= 1 [ default = eMessage_AutoIncrease ];
+	required string 		insertid= 2;	// 自增ID
+};
+
+message MessageResultSets
+{
+	message Result
+	{
+		repeated string 	field 	= 1;
+	};
+
+	optional Command 		id 		= 1 [ default = eMessage_Results ];
+	repeated Result 		results = 2;	// 结果集合
+};

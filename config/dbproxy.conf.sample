@@ -1,0 +1,51 @@
+
+#
+# dbproxy配置
+#
+
+#
+# 全局配置
+#
+# loglevel      - 日志等级
+# dbthreads     - 数据库线程个数
+# logfilesize   - 日志文件大小限制
+#
+
+[Global]
+loglevel        = 5
+dbthreads       = 4
+logfilesize 	= 104857600
+
+#
+# 服务配置
+#
+# host          - 绑定的IP地址
+# port          - 监听的端口号
+# threads       - 线程个数
+# maxclients    - 最大连接数
+# timeoutseconds- 连接的超时时间
+#
+[Service]
+host            = 127.0.0.1
+port            = 12000
+threads         = 2
+maxclients      = 1000
+timeoutseconds  = 30
+
+#
+# MySQL设置
+#
+# host          - MYSQL服务器地址
+# port          - MYSQL服务器端口
+# username      - 数据库访问用户
+# password      - 数据库访问密码
+# charsets      - 连接编码
+# database      - 访问的库名
+#
+[Database]
+host            = 127.0.0.1
+port            = 3306
+username        = db
+password        = r932XdX9NjBAGvuS
+charsets        = utf-8
+database        = db_s12

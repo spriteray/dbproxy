@@ -1,0 +1,177 @@
+
+#
+#
+# BIN				- 可执行文件
+# LIBA				- 静态库
+# LIBSO				- 动态库
+#
+# DEPEND_LIBS		- 依赖的其他第三方库
+# DEPEND_MODULES	- 依赖的项目的其他模块
+#
+#
+
+.PHONY: all clean
+
+include $(ROOT)/Makefile.define
+
+# Makefile自身
+MAKEFILE_SELF	= $(addprefix $(CURDIR)/,$(firstword $(MAKEFILE_LIST)))
+
+#
+# 编译和链接选项
+#
+LDFLAGS			= -ggdb -Wl,-rpath=lib/
+SOFLAGS 		=
+CFLAGS			= -Wall -ggdb -MMD -fomit-frame-pointer -fstack-protector-all
+CXXFLAGS		= -Wall -ggdb -MMD -fomit-frame-pointer -fstack-protector-all
+
+# 支持64位的格式化方法
+CFLAGS 			+= -D__STDC_FORMAT_MACROS
+CXXFLAGS 		+= -D__STDC_FORMAT_MACROS
+
+# 默认include路径
+CFLAGS 			+= -I/usr/include/ -I/usr/local/include/
+CXXFLAGS 		+= -I/usr/include/ -I/usr/local/include/
+
+# 编译模式
+ifeq ($(mode), release)
+CFLAGS			+= -O2 -DNDEBUG
+CXXFLAGS		+= -O2 -DNDEBUG
+else
+CFLAGS			+= -O0 -D__DEBUG__
+CXXFLAGS		+= -O0 -D__DEBUG__
+endif
+
+# 产品名称
+ifdef PRODUCT
+CFLAGS 			+= -D__APPNAME__=\"$(PRODUCT)\"
+CXXFLAGS 		+= -D__APPNAME__=\"$(PRODUCT)\"
+endif
+
+# 版本号
+ifdef VERSION
+CFLAGS			+= -D__APPVERSION__=\"$(VERSION)\"
+CXXFLAGS		+= -D__APPVERSION__=\"$(VERSION)\"
+MAJORVERSION 	= $(firstword $(subst ., ,$(VERSION)))
+endif
+
+# BIN
+ifdef BIN
+BIN				:= $(addprefix $(BIN_PATH)/, $(BIN))
+CFLAGS			+=
+CXXFLAGS		+=
+LDFLAGS			+=
+endif
+
+# LIBA
+ifdef LIBA
+LIBA			:= $(addprefix $(LIB_PATH)/, $(LIBA))
+CFLAGS			+=
+CXXFLAGS		+=
+endif
+
+# LIBSO
+ifdef LIBSO
+LIBNAME 		:= $(LIBSO).so
+SONAME 			:= $(LIBNAME).$(MAJORVERSION)
+LIBSO			:= $(addprefix $(LIB_PATH)/, $(SONAME))
+LIBSOLINKER 	:= $(addprefix $(LIB_PATH)/, $(LIBNAME))
+CFLAGS			+= -fPIC
+CXXFLAGS		+= -fPIC
+SOFLAGS			+= -shared -Wl,-soname,$(SONAME)
+endif
+
+# 相对目录设置
+# 添加lib/， include/, src/, 项目当前目录
+LDFLAGS 		+= -L$(LIB_PATH) -L$(CURDIR)
+CFLAGS			+= -I$(INCLUDE_PATH)/ -I$(SRC_PATH)/ -I$(CURDIR)
+CXXFLAGS		+= -I$(INCLUDE_PATH)/ -I$(SRC_PATH)/ -I$(CURDIR)
+
+# 依赖的其他模块
+ifdef DEPEND_MODULES
+DEPEND_MODULES	:= $(strip $(DEPEND_MODULES))
+endif
+
+# 依赖的第三方库
+ifdef DEPEND_LIBS
+DEPENDLIBS 		:= $(basename $(notdir $(DEPEND_LIBS)))
+DEPENDLIBS_PATH := $(sort $(dir $(DEPEND_LIBS)))
+DEPENDLIBS_PATH := $(addprefix -L,$(DEPENDLIBS_PATH))
+DEPENDLIBS 		:= $(subst lib,-l,$(DEPENDLIBS) )
+LDFLAGS			+= $(DEPENDLIBS_PATH) $(DEPENDLIBS)
+endif
+
+#
+# 扫描当前模块下的所有文件
+#
+
+SCAN_PATH		+= $(DEPEND_MODULES) $(CURDIR)
+ALL_SRCS		+= $(shell find $(SCAN_PATH) -type f -name "*.c" -o -name "*.cc" -o -name "*.cpp")
+ALL_SRCS		+= $(ALL_GEN_SRCS)
+ALL_SRCS		:= $(sort $(ALL_SRCS))
+ALL_DEPS		= $(patsubst %.c,%.d,$(patsubst %.cc,%.d,$(patsubst %.cpp,%.d,$(ALL_SRCS))))
+ALL_DEPS		:= $(subst $(SRC_PATH),$(BUILD_PATH),$(ALL_DEPS))
+ALL_OBJS		= $(patsubst %.c,%.o,$(patsubst %.cc,%.o,$(patsubst %.cpp,%.o,$(ALL_SRCS))))
+ALL_OBJS		:= $(subst $(SRC_PATH),$(BUILD_PATH),$(ALL_OBJS))
+ALL_OBJS_PATH	= $(subst $(SRC_PATH),$(BUILD_PATH),$(dir $(ALL_SRCS)))
+ALL_OBJS_PATH 	:= $(sort $(ALL_OBJS_PATH))
+
+
+ifeq ($(MAKECMDGOALS), all)
+-include $(ALL_DEPS)
+endif
+
+#
+# 目标定义
+#
+
+# Default Target
+all : $(ALL_OBJS_PATH) \
+		$(ALL_GEN_SRCS) $(VERSION_FILE) \
+		$(BIN) $(LIBA) $(LIBSO)
+
+# Release Target
+release : $(all)
+
+# Clean Compile Enviroment
+clean :
+	$(RM) $(RMFLAGS) $(ALL_DEPS)
+	@echo ""
+	$(RM) $(RMFLAGS) $(ALL_OBJS)
+	@echo ""
+	$(RM) $(RMFLAGS) $(ALL_GEN_INCS) $(ALL_GEN_SRCS)
+	$(RM) $(RMFLAGS) $(BIN) $(LIBA) $(LIBSO) $(LIBSOLINKER)
+
+test :
+	@echo $(DEPENDLIBS)
+	@echo $(DEPENDLIBS_PATH)
+	@echo $(MAKEFILE_SELF)
+	@echo $(firstword $(MAKEFILE_LIST))
+	@echo $(LIBNAME) $(SONAME) $(REALNAME)
+	@echo $(LIBSO)
+
+#
+# 规则
+#
+
+# 目标规则
+$(BIN) : $(ALL_OBJS)
+	$(LINKER) $^ -o $@ $(LDFLAGS)
+$(LIBA) : $(ALL_OBJS)
+	$(AR) $^ -o $@
+$(LIBSO) : $(ALL_OBJS)
+	$(LINKER) $^ -o $@ $(SOFLAGS)
+	$(RM) $(RMFLAGS) $(LIBSOLINKER)
+	cd $(LIB_PATH); $(LINK) -s $(SONAME) $(LIBNAME)
+
+# 内置规则
+$(ALL_OBJS_PATH) :
+	$(MKDIR) -p $@
+$(VERSION_FILE) : $(MAKEFILE_SELF)
+	@$(TOUCH) $@
+$(BUILD_PATH)/%.o : $(SRC_PATH)/%.c
+	$(CC) $(CFLAGS) -c $^ -o $@
+$(BUILD_PATH)/%.o : $(SRC_PATH)/%.cc
+	$(CXX) $(CXXFLAGS) -c $(filter %.cc,$^) -o $@
+$(BUILD_PATH)/%.o : $(SRC_PATH)/%.cpp
+	$(CXX) $(CXXFLAGS) -c $(filter %.cpp,$^) -o $@
