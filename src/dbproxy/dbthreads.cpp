@@ -145,6 +145,10 @@ void DBThread::process()
                 this->remove( it->sid, it->transid, it->sqlcmd );
                 break;
 
+            case eSQLCmd_QueryBatch :
+                this->queryBatch( it->sid, it->transid, it->sqlcmd );
+                break;
+
             case eSQLCmd_None :
             default :
                 break;
@@ -207,6 +211,29 @@ void DBThread::remove( sid_t sid, uint32_t transid, const std::string & sqlcmd )
 {
     uint32_t naffected = 0;
     m_Engine->remove( sqlcmd, naffected );
+}
+
+void DBThread::queryBatch( sid_t sid, uint32_t transid, const std::string & sqlcmd )
+{
+    char * fullsqlcmd = strdup( sqlcmd.c_str() );
+    if ( fullsqlcmd == NULL )
+    {
+        LOG_ERROR( "DBThread::queryBatch(SID:%lu, TransID:%d, SQLCMD:'%s') : make this Copy of SQLCMD failed .\n",
+                sid, transid, sqlcmd.c_str(), m_Index );
+        return;
+    }
+
+    char * word, * brkt;
+    const char * sep = ";";
+
+    for ( word = strtok_r(fullsqlcmd, sep, &brkt);
+            word;
+            word = strtok_r(NULL, sep, &brkt) )
+    {
+        this->query( sid, transid, word );
+    }
+
+    free( fullsqlcmd );
 }
 
 ////////////////////////////////////////////////////////////////////////////////

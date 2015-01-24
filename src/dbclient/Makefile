@@ -16,11 +16,12 @@
 LIBSO 			= libdbclient
 
 PRODUCT 		= DBClientLibrary
-VERSION			= 0.0.1
+VERSION			= 0.1.0
 
 DEPEND_LIBS		= pthread m
 
 DEPEND_MODULES 	= $(ROOT)/src/message \
 				  $(ROOT)/src/utils
 
+include $(ROOT)/Makefile.proto
 include $(ROOT)/Makefile.rules

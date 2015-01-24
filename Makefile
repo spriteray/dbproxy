@@ -37,6 +37,7 @@ $(PATHS) :
 	$(MKDIR) -p $@
 
 $(SOLUTION):
+	$(MAKE) -C $@ clean
 	$(MAKE) -C $@ $(MAKECMDGOALS)
 
 $(THIRDLIBS) : lib% :

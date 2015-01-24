@@ -3,6 +3,7 @@ package msg.proxy;
 enum Command
 {
 	eMessage_Variable 		= 0x0001;	// 服务器参数
+	eMessage_Ping 			= 0x0002;	// PING包
 	eMessage_Insert 		= 0x0011;	// 插入SQL命令
 	eMessage_Query 			= 0x0012;	// 查询SQL命令
 	eMessage_Update 		= 0x0013;	// 更新SQL命令
@@ -18,6 +19,11 @@ message MessageProxyVariable
 	required uint32 		nthreads= 3;	// SQL线程个数
 };
 
+message MessagePingCmd
+{
+	optional Command 		id 		= 1 [ default = eMessage_Ping ];
+};
+
 message MessageInsertSqlCmd
 {
 	optional Command 		id 		= 1 [ default = eMessage_Insert ];
@@ -29,7 +35,8 @@ message MessageQuerySqlCmd
 {
 	optional Command 		id 		= 1 [ default = eMessage_Query ];
 	required uint32 		index 	= 2;	// 执行的线程索引
-	required string 		sqlcmd 	= 3;	// SQL语句
+    required bool           batch   = 3;    // 是否是批量查询
+	required string 		sqlcmd 	= 4;	// SQL语句
 };
 
 message MessageUpdateSqlCmd

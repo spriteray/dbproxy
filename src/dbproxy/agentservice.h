@@ -9,10 +9,12 @@
 
 #include "proxyserver.h"
 
+class CAgentService;
+
 class CDBClientSession : public IIOSession
 {
 public :
-    CDBClientSession( const char * host, uint16_t port );
+    CDBClientSession( CAgentService *s, const char * host, uint16_t port );
     virtual ~CDBClientSession();
 
     virtual int32_t onStart();
@@ -27,6 +29,7 @@ private :
 private :
     std::string     m_Host;
     uint16_t        m_Port;
+    CAgentService * m_Service;
 };
 
 class CAgentService : public IIOService

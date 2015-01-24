@@ -10,9 +10,10 @@
 #include "dbthreads.h"
 #include "agentservice.h"
 
-CDBClientSession::CDBClientSession( const char * host, uint16_t port )
+CDBClientSession::CDBClientSession( CAgentService * s, const char * host, uint16_t port )
     : m_Host( host ),
-      m_Port( port )
+      m_Port( port ),
+      m_Service( s )
 {}
 
 CDBClientSession::~CDBClientSession()
@@ -107,8 +108,8 @@ void CDBClientSession::onMessage( DBHead * head, const char * buf )
                 if ( msg.ParseFromArray( buf, head->len ) )
                 {
                     index = msg.index();
-                    cmd = eSQLCmd_Query;
                     sqlcmd = msg.sqlcmd();
+                    cmd = msg.batch() ? eSQLCmd_QueryBatch : eSQLCmd_Query;
                 }
             }
             break;
@@ -136,6 +137,13 @@ void CDBClientSession::onMessage( DBHead * head, const char * buf )
                     cmd = eSQLCmd_Remove;
                     sqlcmd = msg.sqlcmd();
                 }
+            }
+            break;
+
+        case msg::proxy::eMessage_Ping :
+            {
+                msg::proxy::MessagePingCmd msg;
+                m_Service->send( id(), 0, msg::proxy::eMessage_Ping, &msg );
             }
             break;
     }
@@ -173,7 +181,7 @@ void * CAgentService::getLocalData( uint8_t index )
 
 IIOSession * CAgentService::onAccept( sid_t sid, const char * host, uint16_t port )
 {
-    return new CDBClientSession( host, port );
+    return new CDBClientSession( this, host, port );
 }
 
 int32_t CAgentService::send( sid_t id, uint32_t transid, uint16_t cmd, DBMessage * msg )

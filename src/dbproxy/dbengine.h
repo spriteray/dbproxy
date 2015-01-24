@@ -49,6 +49,8 @@ private :
         eDBEngine_WriteTimeout          = 5,    // 写超时时间
     };
 
+    uint32_t escapeSqlcmd( const std::string & sqlcmd );
+
 private :
     std::string         m_Host;         // 主机地址
     uint16_t            m_Port;         // 端口号
@@ -59,6 +61,8 @@ private :
 
 private :
     MYSQL *             m_DBHandler;    // 数据库句柄
+    uint32_t            m_CachaSize;    // 缓存大小
+    char *              m_SqlCmdCache;  // SQLCMD缓存
 };
 
 #endif

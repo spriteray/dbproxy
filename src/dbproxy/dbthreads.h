@@ -58,6 +58,7 @@ private :
     void query( sid_t sid, uint32_t transid, const std::string & sqlcmd );
     void update( sid_t sid, uint32_t transid, const std::string & sqlcmd );
     void remove( sid_t sid, uint32_t transid, const std::string & sqlcmd );
+    void queryBatch( sid_t sid, uint32_t transid, const std::string & sqlcmd );
 
 private :
     uint8_t                 m_Index;

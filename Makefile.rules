@@ -73,9 +73,13 @@ endif
 # LIBSO
 ifdef LIBSO
 LIBNAME 		:= $(LIBSO).so
+LIBMODULENAME 	:= $(subst lib,,$(LIBSO))
+LIBINCLUDEPATH	:= $(CURDIR)/include/
 SONAME 			:= $(LIBNAME).$(MAJORVERSION)
-LIBSO			:= $(addprefix $(LIB_PATH)/, $(SONAME))
-LIBSOLINKER 	:= $(addprefix $(LIB_PATH)/, $(LIBNAME))
+REALNAME 		:= $(LIBNAME).$(VERSION)
+LIBSO			:= $(addprefix $(LIB_PATH)/, $(REALNAME))
+LIBSOLINKER 	:= $(LIBNAME) $(SONAME)
+LIBSOLINKER 	:= $(addprefix $(LIB_PATH)/, $(LIBSOLINKER))
 CFLAGS			+= -fPIC
 CXXFLAGS		+= -fPIC
 SOFLAGS			+= -shared -Wl,-soname,$(SONAME)
@@ -147,8 +151,7 @@ test :
 	@echo $(DEPENDLIBS_PATH)
 	@echo $(MAKEFILE_SELF)
 	@echo $(firstword $(MAKEFILE_LIST))
-	@echo $(LIBNAME) $(SONAME) $(REALNAME)
-	@echo $(LIBSO)
+	@echo $(LIBNAME) $(SONAME) $(REALNAME) $(LIBMODULENAME)
 
 #
 # 规则
@@ -162,7 +165,10 @@ $(LIBA) : $(ALL_OBJS)
 $(LIBSO) : $(ALL_OBJS)
 	$(LINKER) $^ -o $@ $(SOFLAGS)
 	$(RM) $(RMFLAGS) $(LIBSOLINKER)
-	cd $(LIB_PATH); $(LINK) -s $(SONAME) $(LIBNAME)
+	cd $(LIB_PATH); $(LINK) -s $(REALNAME) $(SONAME)
+	cd $(LIB_PATH); $(LINK) -s $(REALNAME) $(LIBNAME)
+	cd $(INCLUDE_PATH); $(RM) $(RMFLAGS) $(LIBMODULENAME)
+	cd $(INCLUDE_PATH); $(LINK) -s $(LIBINCLUDEPATH) $(LIBMODULENAME)
 
 # 内置规则
 $(ALL_OBJS_PATH) :

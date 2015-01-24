@@ -52,6 +52,7 @@ enum SQLCmd
     eSQLCmd_Query       = 2,        // 查询
     eSQLCmd_Update      = 3,        // 更新
     eSQLCmd_Remove      = 4,        // 删除
+    eSQLCmd_QueryBatch  = 5,        // 批量查询
 };
 
 #endif
