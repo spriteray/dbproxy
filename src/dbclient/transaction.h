@@ -9,6 +9,8 @@ namespace dbproxy
     class IDBResult;
 }
 
+class ClientImpl;
+
 class DBResultTrans: public Utils::Transaction
 {
 public :
@@ -19,10 +21,12 @@ public :
     virtual void onTrigger( void * data );
 
 public :
+    void setClient( ClientImpl * cli ) { m_Client = cli; }
     void setResult( dbproxy::IDBResult * result ) { m_Result = result; }
 
 private :
-    dbproxy::IDBResult *                m_Result;
+    ClientImpl *                m_Client;
+    dbproxy::IDBResult *        m_Result;
 };
 
 class DBAutoIncrementTrans : public Utils::Transaction
@@ -35,10 +39,12 @@ public :
     virtual void onTrigger( void * data );
 
 public :
+    void setClient( ClientImpl * cli ) { m_Client = cli; }
     void setResult( dbproxy::IDBResult * result ) { m_Result = result; }
 
 private :
-    dbproxy::IDBResult *                m_Result;
+    ClientImpl *                m_Client;
+    dbproxy::IDBResult *        m_Result;
 };
 
 #endif

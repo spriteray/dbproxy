@@ -34,14 +34,17 @@ public :
     virtual ~IDBClient() {}
 
     // 连接远程服务器
+    // tag          - 标签
     // host         - DBProxy服务器主机
     // port         - DBProxy服务器端口
     // timeout      - 超时时间
     // threads      - DB线程个数
-    // percision    - schedule()线程调度进度
+    // percision    - schedule()线程调度精度
+    // logpath      - 日志所在目录
     static IDBClient * connect(
+            const char * tag,
             const char * host, uint16_t port,
-            uint32_t timeout, uint32_t percition );
+            uint32_t timeout, uint32_t percision, const char * logpath );
 
 public :
     // 调度/处理结果, 以相同的频率调用

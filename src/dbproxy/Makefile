@@ -16,7 +16,7 @@
 BIN				= dbproxy
 
 PRODUCT 		= DBProxy
-VERSION			= 0.1.4
+VERSION			= 0.1.5
 
 DEPEND_LIBS		= libevlite.so \
 				  libprotobuf.so \

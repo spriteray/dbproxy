@@ -9,10 +9,7 @@
 #include "define.h"
 #include "message.h"
 
-namespace Utils
-{
-    class TransactionManager;
-};
+class ClientImpl;
 
 class ResultQueue
 {
@@ -21,11 +18,11 @@ public :
     ~ResultQueue();
 
 public :
+    // 处理队列中的数据
+    void process( ClientImpl * client );
+
     // 提交结果
     bool post( uint32_t transid, DBMessage * result );
-
-    // 处理队列中的数据
-    void process( Utils::TransactionManager * manager );
 
 private :
     struct Task

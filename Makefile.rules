@@ -163,7 +163,7 @@ $(BIN) : $(ALL_OBJS)
 $(LIBA) : $(ALL_OBJS)
 	$(AR) $^ -o $@
 $(LIBSO) : $(ALL_OBJS)
-	$(LINKER) $^ -o $@ $(SOFLAGS)
+	$(LINKER) $^ -o $@ $(SOFLAGS) $(LDFLAGS)
 	$(RM) $(RMFLAGS) $(LIBSOLINKER)
 	cd $(LIB_PATH); $(LINK) -s $(REALNAME) $(SONAME)
 	cd $(LIB_PATH); $(LINK) -s $(REALNAME) $(LIBNAME)

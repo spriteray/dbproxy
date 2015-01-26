@@ -1,9 +1,11 @@
 
 #include <google/protobuf/message.h>
 
+#include "utils/file.h"
 #include "utils/streambuf.h"
 #include "message/proxy.pb.h"
-#include "resultqueue.h"
+
+#include "clientimpl.h"
 #include "agentclient.h"
 
 CAgentClientSession::CAgentClientSession( CAgentClient * c )
@@ -63,6 +65,8 @@ int32_t CAgentClientSession::onProcess( const char * buffer, uint32_t nbytes )
 int32_t CAgentClientSession::onTimeout()
 {
     m_AgentClient->setStatus( eReconnecting );
+    m_AgentClient->getHandler()->getLogger()->print(
+            0, "CAgentClientSession::onTimeout(Sid:%lu) .\n", id() );
     return 0;
 }
 
@@ -76,12 +80,16 @@ int32_t CAgentClientSession::onKeepalive()
 int32_t CAgentClientSession::onError( int32_t result )
 {
     m_AgentClient->setStatus( eReconnecting );
+    m_AgentClient->getHandler()->getLogger()->print(
+            0, "CAgentClientSession::onError(Sid:%lu) .\n", id() );
     return 0;
 }
 
 void CAgentClientSession::onShutdown( int32_t way )
 {
     m_AgentClient->setStatus( eDisconnected );
+    m_AgentClient->getHandler()->getLogger()->print(
+            0, "CAgentClientSession::onShutdown(Sid:%lu, Way:%d) .\n", id(), way );
 }
 
 void CAgentClientSession::onMessage( DBHead * head, const char * buf )
@@ -106,12 +114,18 @@ void CAgentClientSession::onMessage( DBHead * head, const char * buf )
                 msg = new msg::proxy::MessageResultSets;
             }
             break;
+
+        default :
+            m_AgentClient->getHandler()->getLogger()->print( 0,
+                    "CAgentClientSession::onMessage(Sid:%lu, TransID:%u) : the CMD(0x%04x) can't Register .\n",
+                    id(), head->transid, head->cmd );
+            break;
     }
 
     if ( msg )
     {
         msg->ParseFromArray( buf, head->len );
-        m_AgentClient->getResultQueue()->post( head->transid, msg );
+        m_AgentClient->getHandler()->getResultQueue()->post( head->transid, msg );
     }
 }
 
@@ -119,12 +133,12 @@ void CAgentClientSession::onMessage( DBHead * head, const char * buf )
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-CAgentClient::CAgentClient( ResultQueue * queue, uint32_t timeout )
+CAgentClient::CAgentClient( ClientImpl * handler, uint32_t timeout )
     : IIOService( 1, 32 ),
       m_Sid( 0ULL ),
       m_Status( eConnecting ),
       m_Timeout( timeout ),
-      m_ResultQueue( queue )
+      m_Handler( handler )
 {}
 
 CAgentClient::~CAgentClient()

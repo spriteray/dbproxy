@@ -62,21 +62,21 @@ int32_t CDBClientSession::onProcess( const char * buffer, uint32_t nbytes )
 
 int32_t CDBClientSession::onTimeout()
 {
-    LOG_WARN( "CDBClientSession::onTimeout(%lu, %s::%s) .\n",
+    LOG_WARN( "CDBClientSession::onTimeout(%lu, %s::%d) .\n",
             id(), m_Host.c_str(), m_Port );
     return -1;
 }
 
 int32_t CDBClientSession::onError( int32_t result )
 {
-    LOG_WARN( "CDBClientSession::onError(%lu, %s::%s) : 0x%08x .\n",
+    LOG_WARN( "CDBClientSession::onError(%lu, %s::%d) : 0x%08x .\n",
             id(), m_Host.c_str(), m_Port, result );
     return -1;
 }
 
 void CDBClientSession::onShutdown( int32_t way )
 {
-    LOG_WARN( "CDBClientSession::onShutdown(%lu, %s::%s) : way=%d .\n",
+    LOG_WARN( "CDBClientSession::onShutdown(%lu, %s::%d) : way=%d .\n",
             id(), m_Host.c_str(), m_Port, way );
 }
 

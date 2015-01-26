@@ -1,7 +1,9 @@
 
+#include <cstdio>
 #include <cassert>
 #include <google/protobuf/message.h>
 
+#include "utils/file.h"
 #include "utils/timeutils.h"
 #include "utils/transaction.h"
 
@@ -13,11 +15,13 @@
 
 #include "clientimpl.h"
 
-ClientImpl::ClientImpl()
-    : m_Timeout( 0 ),
+ClientImpl::ClientImpl( const char * tag )
+    : m_Tag( tag ),
+      m_Timeout( 0 ),
       m_Persicion( 0 ),
       m_ProxyPort( 0 ),
       m_ScheduleTime( 0ULL ),
+      m_Logger( NULL ),
       m_Client( NULL ),
       m_TimeTick( NULL ),
       m_TransactionManager( NULL )
@@ -25,13 +29,14 @@ ClientImpl::ClientImpl()
 
 ClientImpl::~ClientImpl()
 {
+    this->finalize();
     google::protobuf::ShutdownProtobufLibrary();
 }
 
 void ClientImpl::schedule()
 {
     // 处理结果队列
-    m_Results.process( m_TransactionManager );
+    m_Results.process( this );
 
     // 定时器调度
     uint64_t now = Utils::TimeUtils::now();
@@ -58,6 +63,7 @@ void ClientImpl::update( uint8_t index, const std::string & sqlcmd )
     msg.set_sqlcmd( sqlcmd );
 
     m_Client->send( msg::proxy::eMessage_Update, 0, &msg );
+    m_Logger->print( 0, "ClientImpl::update(Index:%d) : '%s' .\n", index, sqlcmd.c_str() );
 }
 
 void ClientImpl::remove( uint8_t index, const std::string & sqlcmd )
@@ -67,6 +73,7 @@ void ClientImpl::remove( uint8_t index, const std::string & sqlcmd )
     msg.set_sqlcmd( sqlcmd );
 
     m_Client->send( msg::proxy::eMessage_Remove, 0, &msg );
+    m_Logger->print( 0, "ClientImpl::remove(Index:%d) : '%s' .\n", index, sqlcmd.c_str() );
 }
 
 void ClientImpl::insert( uint8_t index, const std::string & sqlcmd, dbproxy::IDBResult * result, uint32_t timeout )
@@ -82,6 +89,7 @@ void ClientImpl::insert( uint8_t index, const std::string & sqlcmd, dbproxy::IDB
         // 创建事务
         DBAutoIncrementTrans * transaction = new DBAutoIncrementTrans;
         assert( transaction != NULL && "create DBAutoIncrementTrans failed" );
+        transaction->setClient( this );
         transaction->setResult( result );
         m_TransactionManager->append( transaction, timeout );
 
@@ -90,6 +98,7 @@ void ClientImpl::insert( uint8_t index, const std::string & sqlcmd, dbproxy::IDB
     }
 
     m_Client->send( msg::proxy::eMessage_Insert, transid, &msg );
+    m_Logger->print( 0, "ClientImpl::insert(Index:%d, TransID:%d) : '%s' .\n", index, transid, sqlcmd.c_str() );
 }
 
 void ClientImpl::query( uint8_t index, bool isbatch, const std::string & sqlcmd, dbproxy::IDBResult * result, uint32_t timeout )
@@ -104,10 +113,13 @@ void ClientImpl::query( uint8_t index, bool isbatch, const std::string & sqlcmd,
     // 创建事务
     DBResultTrans * transaction = new DBResultTrans;
     assert( transaction != NULL && "create DBResultTrans failed" );
+    transaction->setClient( this );
     transaction->setResult( result );
     m_TransactionManager->append( transaction, timeout );
 
     m_Client->send( msg::proxy::eMessage_Query, transaction->getTransID(), &msg );
+    m_Logger->print( 0, "ClientImpl::query(Index:%d, IsBatch:%d, TransID:%d) : '%s' .\n",
+            index, isbatch, transaction->getTransID(), sqlcmd.c_str() );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -117,8 +129,15 @@ uint8_t ClientImpl::status() const
     return m_Client->getStatus();
 }
 
-bool ClientImpl::initialize()
+bool ClientImpl::initialize( const char * path )
 {
+    char module[ 1024 ];
+    std::snprintf( module, 1023, "dbclient-%s", m_Tag.c_str() );
+
+    m_Logger = new Utils::LogFile( path, module );
+    assert( m_Logger != NULL && "create Utils::LogFile failed" );
+    m_Logger->open();
+
     // 时间服务
     m_TimeTick = new TimeTick( m_Persicion );
     assert( m_TimeTick != NULL && "create TimeTick failed" );
@@ -132,7 +151,7 @@ bool ClientImpl::initialize()
     assert( m_TransactionManager != NULL && "create Utils::TransactionManager failed" );
 
     // 网络线程
-    m_Client = new CAgentClient( &m_Results, m_Timeout );
+    m_Client = new CAgentClient( this, m_Timeout );
     assert( m_Client != NULL && "create CAgentClient failed" );
 
     return m_Client->connect( m_ProxyHost.c_str(), m_ProxyPort, m_Timeout );
@@ -140,7 +159,7 @@ bool ClientImpl::initialize()
 
 void ClientImpl::finalize()
 {
-    m_Results.process( m_TransactionManager );
+    m_Results.process( this );
 
     if ( m_Client != NULL )
     {
@@ -160,6 +179,13 @@ void ClientImpl::finalize()
         m_TimeTick->stop();
         delete m_TimeTick;
         m_TimeTick = NULL;
+    }
+
+    if ( m_Logger != NULL )
+    {
+        m_Logger->close();
+        delete m_Logger;
+        m_Logger = NULL;
     }
 }
 
@@ -184,20 +210,22 @@ void ClientImpl::setEndpoint( const char * host, uint16_t port )
 ////////////////////////////////////////////////////////////////////////////////
 
 dbproxy::IDBClient * dbproxy::IDBClient::connect(
+            const char * tag,
             const char * host, uint16_t port,
-            uint32_t timeout, uint32_t percition )
+            uint32_t timeout, uint32_t percision, const char * logpath )
 {
+    uint32_t usedseconds = 0;
+
     // 初始化数据
-    ClientImpl * client = new ClientImpl;
+    ClientImpl * client = new ClientImpl(tag);
     assert( client != NULL && "create ClientImpl failed" );
     client->setTimeout( timeout );
-    client->setPercision( percition );
+    client->setPercision( percision );
     client->setEndpoint( host, port );
 
     // 连接
-    if ( !client->initialize() )
+    if ( !client->initialize(logpath) )
     {
-        client->finalize();
         delete client;
         return NULL;
     }
@@ -206,6 +234,14 @@ dbproxy::IDBClient * dbproxy::IDBClient::connect(
     while ( client->status() != eConnected )
     {
         Utils::TimeUtils::sleep( 10 );
+        usedseconds += 10;
+
+        if ( usedseconds >= timeout*1000 )
+        {
+            client->getLogger()->print( 0, "IDBClient::connect('%s'::%d) failed .\n", host, port );
+            delete client;
+            return NULL;
+        }
     }
 
     return client;

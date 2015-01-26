@@ -14,7 +14,7 @@ enum
     eDisconnected   = 4,    // 断开
 };
 
-class ResultQueue;
+class ClientImpl;
 class CAgentClient;
 
 class CAgentClientSession : public IIOSession
@@ -40,7 +40,7 @@ private :
 class CAgentClient : public IIOService
 {
 public :
-    CAgentClient( ResultQueue * queue, uint32_t timeout );
+    CAgentClient( ClientImpl * handler, uint32_t timeout );
     virtual ~CAgentClient();
 
     virtual IIOSession * onConnect( sid_t id, const char * host, uint16_t port );
@@ -56,8 +56,8 @@ public :
     // 获取超时时间
     uint32_t getTimeoutSeconds() const { return m_Timeout; }
 
-    // 获取结果队列
-    ResultQueue * getResultQueue() const { return m_ResultQueue; }
+    // 获取客户端句柄
+    ClientImpl * getHandler() const { return m_Handler; }
 
     // 发送数据
     int32_t send( uint16_t cmd, uint32_t transid, DBMessage * msg );
@@ -67,7 +67,7 @@ private :
     uint8_t         m_Status;
     uint32_t        m_Timeout;
 
-    ResultQueue *   m_ResultQueue;
+    ClientImpl *    m_Handler;
 };
 
 #endif

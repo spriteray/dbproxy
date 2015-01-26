@@ -12,13 +12,14 @@ class CAgentClient;
 
 namespace Utils
 {
+    class LogFile;
     class TransactionManager;
 }
 
 class ClientImpl : public dbproxy::IDBClient
 {
 public :
-    ClientImpl();
+    ClientImpl( const char * tag );
     virtual ~ClientImpl();
 
 public :
@@ -53,7 +54,7 @@ public :
     uint8_t status() const;
 
     // 初始化和销毁
-    bool initialize();
+    bool initialize( const char * path );
     void finalize();
 
     // 设置超时时间
@@ -63,7 +64,15 @@ public :
     // 设置Proxy的网络信息
     void setEndpoint( const char * host, uint16_t port );
 
+    // 结果队列
+    ResultQueue * getResultQueue() { return &m_Results; }
+    // 获取日志句柄
+    Utils::LogFile * getLogger() const { return m_Logger; }
+    // 获取事务管理器
+    Utils::TransactionManager * getTransManager() const { return m_TransactionManager; }
+
 private :
+    std::string         m_Tag;
     uint32_t            m_Timeout;
     uint32_t            m_Persicion;
     std::string         m_ProxyHost;
@@ -72,6 +81,7 @@ private :
 
 private :
     ResultQueue                     m_Results;              // 查询结果
+    Utils::LogFile *                m_Logger;               // 日志系统
     CAgentClient *                  m_Client;               // 网络线程
     TimeTick *                      m_TimeTick;             // 定时器
     Utils::TransactionManager *     m_TransactionManager;   // 事务管理器

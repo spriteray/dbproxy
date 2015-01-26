@@ -1,6 +1,8 @@
 
+#include "utils/file.h"
 #include "utils/transaction.h"
 
+#include "clientimpl.h"
 #include "resultqueue.h"
 
 ResultQueue::ResultQueue()
@@ -9,7 +11,9 @@ ResultQueue::ResultQueue()
 }
 
 ResultQueue::~ResultQueue()
-{}
+{
+    pthread_mutex_destroy( &m_Lock );
+}
 
 bool ResultQueue::post( uint32_t transid, DBMessage * result )
 {
@@ -20,7 +24,7 @@ bool ResultQueue::post( uint32_t transid, DBMessage * result )
     return true;
 }
 
-void ResultQueue::process( Utils::TransactionManager * manager )
+void ResultQueue::process( ClientImpl * client )
 {
     // swap
     std::deque<Task> taskqueue;
@@ -32,11 +36,18 @@ void ResultQueue::process( Utils::TransactionManager * manager )
     std::deque<Task>::iterator iter;
     for ( iter = taskqueue.begin(); iter != taskqueue.end(); ++iter )
     {
+        Utils::LogFile * logger = client->getLogger();
+        Utils::TransactionManager * manager = client->getTransManager();
+
         Utils::Transaction * trans = manager->get( iter->transid );
-        if ( trans )
+        if ( trans == NULL )
         {
-            trans->onTrigger( iter->message );
-            delete trans;
+            logger->print(
+                    0, "ResultQueue::process(TransID:%u) : this Transaction can't found .\n", iter->transid );
+            continue;
         }
+
+        trans->onTrigger( iter->message );
+        delete trans;
     }
 }

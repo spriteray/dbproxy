@@ -16,11 +16,14 @@
 LIBSO 			= libdbclient
 
 PRODUCT 		= DBClientLibrary
-VERSION			= 0.1.0
+VERSION			= 0.1.2
 
-DEPEND_LIBS		= pthread m
+DEPEND_LIBS		= libevlite.so \
+				  libprotobuf.so \
+				  libpthread.so libm.so
 
 DEPEND_MODULES 	= $(ROOT)/src/message \
+				  $(ROOT)/src/io \
 				  $(ROOT)/src/utils
 
 include $(ROOT)/Makefile.proto

@@ -6,18 +6,21 @@ import re
 import sys
 import MySQLdb
 
+# ----- Database Settings ------
 HOST='${HOST}'
 USERNAME='${USERNAME}'
 PASSWORD='${PASSWORD}'
 DATABASE='${DATABASE}'
 PORT=3306
+# ------------------------------
 
 class MySQLTable() :
-    def __init__( self, table ) :
+    def __init__( self, table, dstpath ) :
         self._keys = []
         self._fields = []
         self._aifield = ''
         self._table = table
+        self._dstpath = dstpath
 
     def get_descs( self, db ) :
         index = 0
@@ -55,7 +58,7 @@ class MySQLTable() :
         self.generate_cpp()
 
     def generate_hpp( self ) :
-        tofile = open( '%s.h' % self._table, 'w' )
+        tofile = open( '%s/%s.h' % (self._dstpath,self._table), 'w' )
         tofile.write( '\n' )
         tofile.write( '#ifndef __SQLBIND_GENERATE_%s_H__\n' % self._table.upper() )
         tofile.write( '#define __SQLBIND_GENERATE_%s_H__\n' % self._table.upper() )
@@ -94,7 +97,7 @@ class MySQLTable() :
         tofile.close()
 
     def generate_cpp( self ) :
-        tofile = open( '%s.cc' % self._table, 'w' )
+        tofile = open( '%s/%s.cc' % (self._dstpath,self._table), 'w' )
         tofile.write( '\n' )
         tofile.write( '#include <cstdio>\n' )
         tofile.write( '#include <cassert>\n' )
@@ -123,10 +126,10 @@ class MySQLTable() :
     def generate_func( self, field, tofile ) :
         tofile.write( '    // Field: %s, Index: %d\n' % (field[0], field[2]) )
         if field[1] == 'std::string' :
-            tofile.write( '    const std::string & %s() const { return m_%s; }\n' % ( field[0], field[0] ) )
+            tofile.write( '    const std::string & get_%s() const { return m_%s; }\n' % ( field[0], field[0] ) )
             tofile.write( '    void set_%s( const std::string & value ) { m_%s = value; m_dirty[%d] = 1; }\n' % ( field[0], field[0], field[2] ) )
         else :
-            tofile.write( '    %s %s() const { return m_%s; }\n' % ( field[1], field[0], field[0] ) )
+            tofile.write( '    %s get_%s() const { return m_%s; }\n' % ( field[1], field[0], field[0] ) )
             tofile.write( '    void set_%s( %s value ) { m_%s = value; m_dirty[%d] = 1; }\n' % ( field[0], field[1], field[0], field[2] ) )
         tofile.write( '\n' )
 
@@ -326,20 +329,23 @@ def get_placeholder( cpptype ) :
     else : holder = '%s'
     return holder
 
-def scan_database( database ) :
+def scan_database( database, dstpath ) :
     conn = MySQLdb.connect( host=HOST, user=USERNAME, passwd=PASSWORD, db=database, port=PORT )
     handler = conn.cursor()
     handler.execute( 'show tables' )
     results = handler.fetchall()
     for result in results :
         print 'Bind Table:%s' % result[0]
-        table = MySQLTable( result[0] )
+        table = MySQLTable( result[0], dstpath )
         table.get_descs( handler )
         table.generate()
     handler.close()
     conn.close()
 
 if __name__ == "__main__" :
+    dstpath = ''
     reload(sys)
     sys.setdefaultencoding('utf-8')
-    scan_database( DATABASE )
+    if len(sys.argv) == 2 :
+        dstpath = sys.argv[1]
+    scan_database( DATABASE, dstpath )
