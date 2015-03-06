@@ -29,6 +29,7 @@ message MessageInsertSqlCmd
 	optional Command 		id 		= 1 [ default = eMessage_Insert ];
 	required uint32 		index 	= 2;	// 执行的线程索引
 	required string 		sqlcmd 	= 3;	// SQL语句
+	repeated bytes 			values 	= 4;	// 参数数值
 };
 
 message MessageQuerySqlCmd
@@ -44,6 +45,7 @@ message MessageUpdateSqlCmd
 	optional Command 		id 		= 1 [ default = eMessage_Update ];
 	required uint32 		index 	= 2;	// 执行的线程索引
 	required string 		sqlcmd 	= 3;	// SQL语句
+	repeated bytes 			values 	= 4;	// 参数数值
 };
 
 message MessageRemoveSqlCmd

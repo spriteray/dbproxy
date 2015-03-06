@@ -66,6 +66,22 @@ void ClientImpl::update( uint8_t index, const std::string & sqlcmd )
     m_Logger->print( 0, "ClientImpl::update(Index:%d) : '%s' .\n", index, sqlcmd.c_str() );
 }
 
+void ClientImpl::update( uint8_t index,
+        const std::string & sqlcmd, const std::vector<std::string> & values )
+{
+    msg::proxy::MessageUpdateSqlCmd msg;
+    msg.set_index( index );
+    msg.set_sqlcmd( sqlcmd );
+    for ( size_t i = 0; i < values.size(); ++i )
+    {
+        msg.add_values( values[i] );
+    }
+
+    m_Client->send( msg::proxy::eMessage_Update, 0, &msg );
+    m_Logger->print( 0, "ClientImpl::update(Index:%d) : '%s', BIND %lu Value(s) .\n",
+            index, sqlcmd.c_str(), values.size() );
+}
+
 void ClientImpl::remove( uint8_t index, const std::string & sqlcmd )
 {
     msg::proxy::MessageRemoveSqlCmd msg;
@@ -99,6 +115,39 @@ void ClientImpl::insert( uint8_t index, const std::string & sqlcmd, dbproxy::IDB
 
     m_Client->send( msg::proxy::eMessage_Insert, transid, &msg );
     m_Logger->print( 0, "ClientImpl::insert(Index:%d, TransID:%d) : '%s' .\n", index, transid, sqlcmd.c_str() );
+}
+
+void ClientImpl::insert( uint8_t index,
+        const std::string & sqlcmd,
+        const std::vector<std::string> & values,
+        dbproxy::IDBResult * result, uint32_t timeout )
+{
+    uint32_t transid = 0;
+
+    msg::proxy::MessageInsertSqlCmd msg;
+    msg.set_index( index );
+    msg.set_sqlcmd( sqlcmd );
+    for ( size_t i = 0; i < values.size(); ++i )
+    {
+        msg.add_values( values[i] );
+    }
+
+    if ( result != NULL && timeout > 0 )
+    {
+        // 创建事务
+        DBAutoIncrementTrans * transaction = new DBAutoIncrementTrans;
+        assert( transaction != NULL && "create DBAutoIncrementTrans failed" );
+        transaction->setClient( this );
+        transaction->setResult( result );
+        m_TransactionManager->append( transaction, timeout );
+
+        // 获取新创建的事务ID
+        transid = transaction->getTransID();
+    }
+
+    m_Client->send( msg::proxy::eMessage_Insert, transid, &msg );
+    m_Logger->print( 0, "ClientImpl::insert(Index:%d, TransID:%d) : '%s', BIND %lu Value(s) .\n",
+            index, transid, sqlcmd.c_str(), values.size() );
 }
 
 void ClientImpl::query( uint8_t index, bool isbatch, const std::string & sqlcmd, dbproxy::IDBResult * result, uint32_t timeout )

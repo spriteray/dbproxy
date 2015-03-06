@@ -85,6 +85,7 @@ void CDBClientSession::onMessage( DBHead * head, const char * buf )
     uint32_t index = 0;
     std::string sqlcmd;
     SQLCmd cmd = eSQLCmd_None;
+    std::vector<std::string> values;
 
     switch ( head->cmd )
     {
@@ -97,6 +98,10 @@ void CDBClientSession::onMessage( DBHead * head, const char * buf )
                     index = msg.index();
                     cmd = eSQLCmd_Insert;
                     sqlcmd = msg.sqlcmd();
+                    for ( int32_t i = 0; i < msg.values_size(); ++i )
+                    {
+                        values.push_back( msg.values(i) );
+                    }
                 }
             }
             break;
@@ -123,6 +128,10 @@ void CDBClientSession::onMessage( DBHead * head, const char * buf )
                     index = msg.index();
                     cmd = eSQLCmd_Update;
                     sqlcmd = msg.sqlcmd();
+                    for ( int32_t i = 0; i < msg.values_size(); ++i )
+                    {
+                        values.push_back( msg.values(i) );
+                    }
                 }
             }
             break;
@@ -154,7 +163,7 @@ void CDBClientSession::onMessage( DBHead * head, const char * buf )
         return;
     }
 
-    g_DBThreads->post( index, cmd, id(), head->transid, sqlcmd );
+    g_DBThreads->post( index, cmd, id(), head->transid, sqlcmd, values );
 }
 
 ////////////////////////////////////////////////////////////////////////////////

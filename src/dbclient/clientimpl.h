@@ -30,6 +30,10 @@ public :
     virtual void update(
             uint8_t index,
             const std::string & sqlcmd );
+    virtual void update(
+            uint8_t index,
+            const std::string & sqlcmd,
+            const std::vector<std::string> & values );
 
     // 执行删除语句
     virtual void remove(
@@ -40,6 +44,11 @@ public :
     virtual void insert(
             uint8_t index,
             const std::string & sqlcmd,
+            dbproxy::IDBResult * result, uint32_t timeout );
+    virtual void insert(
+            uint8_t index,
+            const std::string & sqlcmd,
+            const std::vector<std::string> & values,
             dbproxy::IDBResult * result, uint32_t timeout );
 
     // 执行查询语句

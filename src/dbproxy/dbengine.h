@@ -27,10 +27,15 @@ public :
 public :
     // 初始化
     bool initialize();
+
+    // 销毁
     void finalize();
 
     // 保活
     void keepalive();
+
+    // 转义
+    void escape( const std::string & src, std::string & dst );
 
     // 插入
     bool insert( const std::string & sqlcmd, uint64_t & insertid );
@@ -61,8 +66,6 @@ private :
 
 private :
     MYSQL *             m_DBHandler;    // 数据库句柄
-    uint32_t            m_CachaSize;    // 缓存大小
-    char *              m_SqlCmdCache;  // SQLCMD缓存
 };
 
 #endif

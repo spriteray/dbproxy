@@ -8,6 +8,7 @@
 #include "message/proxy.pb.h"
 
 #include "dbengine.h"
+#include "sqltools.h"
 #include "agentservice.h"
 
 #include "dbthreads.h"
@@ -98,8 +99,8 @@ void DBThread::onStop()
     }
 }
 
-bool DBThread::push2Database( SQLCmd cmd,
-        sid_t sid, uint32_t transid, const std::string & sqlcmd )
+bool DBThread::push2Database( SQLCmd cmd, sid_t sid, uint32_t transid,
+        const std::string & sqlcmd, const std::vector<std::string> & values )
 {
     if ( !this->isRunning() )
     {
@@ -109,7 +110,7 @@ bool DBThread::push2Database( SQLCmd cmd,
     }
 
     pthread_mutex_lock( &m_Lock );
-    m_Queue.push_back( DBCommand( cmd, sid, transid, sqlcmd ) );
+    m_Queue.push_back( DBCommand( cmd, sid, transid, sqlcmd, values ) );
     pthread_mutex_unlock( &m_Lock );
 
     return true;
@@ -130,7 +131,7 @@ void DBThread::process()
         switch ( it->cmd )
         {
             case eSQLCmd_Insert :
-                this->insert( it->sid, it->transid, it->sqlcmd );
+                this->insert( it->sid, it->transid, it->sqlcmd, it->values );
                 break;
 
             case eSQLCmd_Query :
@@ -138,7 +139,7 @@ void DBThread::process()
                 break;
 
             case eSQLCmd_Update :
-                this->update( it->sid, it->transid, it->sqlcmd );
+                this->update( it->sid, it->transid, it->sqlcmd, it->values );
                 break;
 
             case eSQLCmd_Remove :
@@ -156,11 +157,30 @@ void DBThread::process()
     }
 }
 
-void DBThread::insert( sid_t sid, uint32_t transid, const std::string & sqlcmd )
+void DBThread::insert( sid_t sid, uint32_t transid,
+        const std::string & sqlcmd, const std::vector<std::string> & values )
 {
     uint64_t insertid = 0;
+    std::string fullsqlcmd;
+    std::vector<std::string> escapevalues;
 
-    bool rc = m_Engine->insert( sqlcmd, insertid );
+    for ( size_t i = 0; i < values.size(); ++i )
+    {
+        std::string escapevalue;
+        m_Engine->escape( values[i], escapevalue );
+        escapevalues.push_back( escapevalue );
+    }
+
+    if ( escapevalues.empty() )
+    {
+        fullsqlcmd = sqlcmd;
+    }
+    else
+    {
+        SqlTools::sqlbind( fullsqlcmd, sqlcmd, escapevalues );
+    }
+
+    bool rc = m_Engine->insert( fullsqlcmd, insertid );
     if ( !rc )
     {
         return;
@@ -201,10 +221,30 @@ void DBThread::query( sid_t sid, uint32_t transid, const std::string & sqlcmd )
     g_AgentService->send( sid, transid, msg::proxy::eMessage_Results, &msg );
 }
 
-void DBThread::update( sid_t sid, uint32_t transid, const std::string & sqlcmd )
+void DBThread::update( sid_t sid, uint32_t transid,
+        const std::string & sqlcmd, const std::vector<std::string> & values )
 {
     uint32_t naffected = 0;
-    m_Engine->update( sqlcmd, naffected );
+    std::string fullsqlcmd;
+    std::vector<std::string> escapevalues;
+
+    for ( size_t i = 0; i < values.size(); ++i )
+    {
+        std::string escapevalue;
+        m_Engine->escape( values[i], escapevalue );
+        escapevalues.push_back( escapevalue );
+    }
+
+    if ( escapevalues.empty() )
+    {
+        fullsqlcmd = sqlcmd;
+    }
+    else
+    {
+        SqlTools::sqlbind( fullsqlcmd, sqlcmd, escapevalues );
+    }
+
+    m_Engine->update( fullsqlcmd, naffected );
 }
 
 void DBThread::remove( sid_t sid, uint32_t transid, const std::string & sqlcmd )
@@ -307,8 +347,9 @@ bool DBThreads::check()
     return true;
 }
 
-bool DBThreads::post( uint8_t index, SQLCmd cmd,
-        sid_t sid, uint32_t transid, const std::string & sqlcmd )
+bool DBThreads::post( uint8_t index,
+        SQLCmd cmd, sid_t sid, uint32_t transid,
+        const std::string & sqlcmd, const std::vector<std::string> & values )
 {
     if ( index >= m_Threads.size() )
     {
@@ -317,5 +358,5 @@ bool DBThreads::post( uint8_t index, SQLCmd cmd,
         return false;
     }
 
-    return m_Threads[ index ]->push2Database( cmd, sid, transid, sqlcmd );
+    return m_Threads[ index ]->push2Database( cmd, sid, transid, sqlcmd, values );
 }

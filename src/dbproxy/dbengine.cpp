@@ -5,9 +5,7 @@
 DBEngine::DBEngine( const std::string & host, uint16_t port )
     : m_Host( host ),
       m_Port( port ),
-      m_DBHandler( NULL ),
-      m_CachaSize( 0 ),
-      m_SqlCmdCache( NULL )
+      m_DBHandler( NULL )
 {}
 
 DBEngine::~DBEngine()
@@ -76,13 +74,6 @@ void DBEngine::finalize()
         mysql_close( m_DBHandler );
         m_DBHandler = NULL;
     }
-
-    if ( m_SqlCmdCache != NULL )
-    {
-        std::free( m_SqlCmdCache );
-        m_CachaSize = 0;
-        m_SqlCmdCache = NULL;
-    }
 }
 
 void DBEngine::keepalive()
@@ -97,12 +88,24 @@ void DBEngine::keepalive()
     }
 }
 
+void DBEngine::escape( const std::string & src, std::string & dst )
+{
+    // 重置dst长度
+    dst.resize( src.size() * 2 + 1 );
+
+    char * to = const_cast<char *>( dst.data() );
+    size_t len = mysql_real_escape_string(
+            m_DBHandler,
+            to, (const char *)src.data(), src.size() );
+
+    dst.resize( len );
+}
+
 bool DBEngine::insert( const std::string & sqlcmd, uint64_t & insertid )
 {
     int32_t rc = 0;
-    uint32_t len = this->escapeSqlcmd( sqlcmd );
 
-    rc = mysql_real_query( m_DBHandler, m_SqlCmdCache, len );
+    rc = mysql_real_query( m_DBHandler, sqlcmd.data(), sqlcmd.size() );
     if ( rc != 0 )
     {
         LOG_ERROR( "DBEngine::insert(SQLCMD:'%s') : Result:%d, Error:(%d,'%s') .\n",
@@ -120,9 +123,8 @@ bool DBEngine::insert( const std::string & sqlcmd, uint64_t & insertid )
 bool DBEngine::query( const std::string & sqlcmd, Results & results )
 {
     int32_t rc = 0;
-    uint32_t len = this->escapeSqlcmd( sqlcmd );
 
-    rc = mysql_real_query( m_DBHandler, m_SqlCmdCache, len );
+    rc = mysql_real_query( m_DBHandler, sqlcmd.data(), sqlcmd.size() );
     if ( rc != 0 )
     {
         LOG_ERROR( "DBEngine::query(SQLCMD:'%s') : Result:%d, Error:(%d,'%s') .\n",
@@ -161,9 +163,8 @@ bool DBEngine::query( const std::string & sqlcmd, Results & results )
 bool DBEngine::update( const std::string & sqlcmd, uint32_t & naffected )
 {
     int32_t rc = 0;
-    uint32_t len = this->escapeSqlcmd( sqlcmd );
 
-    rc = mysql_real_query( m_DBHandler, m_SqlCmdCache, len );
+    rc = mysql_real_query( m_DBHandler, sqlcmd.data(), sqlcmd.size() );
     if ( rc != 0 )
     {
         LOG_ERROR( "DBEngine::update(SQLCMD:'%s') : Result:%d, Error:(%d,'%s') .\n",
@@ -181,9 +182,8 @@ bool DBEngine::update( const std::string & sqlcmd, uint32_t & naffected )
 bool DBEngine::remove( const std::string & sqlcmd, uint32_t & naffected )
 {
     int32_t rc = 0;
-    uint32_t len = this->escapeSqlcmd( sqlcmd );
 
-    rc = mysql_real_query( m_DBHandler, m_SqlCmdCache, len );
+    rc = mysql_real_query( m_DBHandler, sqlcmd.data(), sqlcmd.size() );
     if ( rc != 0 )
     {
         LOG_ERROR( "DBEngine::remove(SQLCMD:'%s') : Result:%d, Error:(%d,'%s') .\n",
@@ -196,26 +196,4 @@ bool DBEngine::remove( const std::string & sqlcmd, uint32_t & naffected )
     LOG_TRACE( "DBEngine::remove(SQLCMD:'%s') : AffectedRows:%u .\n", sqlcmd.c_str(), naffected );
 
     return true;
-}
-
-uint32_t DBEngine::escapeSqlcmd( const std::string & sqlcmd )
-{
-    uint32_t needspace = sqlcmd.size() * 2 + 1;
-
-    if ( m_SqlCmdCache != NULL
-            && m_CachaSize < needspace )
-    {
-        std::free( m_SqlCmdCache );
-        m_SqlCmdCache = NULL;
-    }
-
-    if ( m_SqlCmdCache == NULL )
-    {
-        m_CachaSize = needspace;
-        m_SqlCmdCache = ( char * )std::malloc( needspace );
-        assert( m_SqlCmdCache != NULL && "new m_SqlCmdCache failed" );
-    }
-
-    return mysql_real_escape_string( m_DBHandler,
-            m_SqlCmdCache, (const char *)sqlcmd.data(), sqlcmd.size() );
 }

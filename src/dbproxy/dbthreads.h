@@ -25,24 +25,26 @@ public :
     virtual void onStop();
 
 public :
-    bool push2Database( SQLCmd cmd, sid_t sid,
-            uint32_t transid, const std::string & sqlcmd );
+    bool push2Database( SQLCmd cmd, sid_t sid, uint32_t transid,
+            const std::string & sqlcmd, const std::vector<std::string> & values );
 
 private :
     struct DBCommand
     {
-        SQLCmd          cmd;
-        sid_t           sid;
-        uint32_t        transid;
-        std::string     sqlcmd;
+        SQLCmd                      cmd;
+        sid_t                       sid;
+        uint32_t                    transid;
+        std::string                 sqlcmd;
+        std::vector<std::string>    values;
 
-        DBCommand( SQLCmd cmd, sid_t sid,
-                uint32_t transid, const std::string & sqlcmd )
+        DBCommand( SQLCmd cmd, sid_t sid, uint32_t transid,
+                const std::string & sqlcmd, const std::vector<std::string> & values )
         {
             this->cmd = cmd;
             this->sid = sid;
             this->transid = transid;
             this->sqlcmd = sqlcmd;
+            this->values = values;
         }
     };
 
@@ -54,9 +56,11 @@ private :
 
     void process();
 
-    void insert( sid_t sid, uint32_t transid, const std::string & sqlcmd );
+    void insert( sid_t sid, uint32_t transid,
+            const std::string & sqlcmd, const std::vector<std::string> & values );
     void query( sid_t sid, uint32_t transid, const std::string & sqlcmd );
-    void update( sid_t sid, uint32_t transid, const std::string & sqlcmd );
+    void update( sid_t sid, uint32_t transid,
+            const std::string & sqlcmd, const std::vector<std::string> & values );
     void remove( sid_t sid, uint32_t transid, const std::string & sqlcmd );
     void queryBatch( sid_t sid, uint32_t transid, const std::string & sqlcmd );
 
@@ -81,8 +85,9 @@ public :
     // 检查DBThreads
     bool check();
 
-    bool post( uint8_t index, SQLCmd cmd,
-            sid_t sid, uint32_t transid, const std::string & sqlcmd );
+    bool post( uint8_t index,
+            SQLCmd cmd, sid_t sid, uint32_t transid,
+            const std::string & sqlcmd, const std::vector<std::string> & values );
 
 private :
     uint8_t                         m_Number;

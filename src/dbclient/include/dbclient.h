@@ -55,6 +55,10 @@ public :
     virtual void update(
             uint8_t index,
             const std::string & sqlcmd ) = 0;
+    virtual void update(
+            uint8_t index,
+            const std::string & sqlcmd,
+            const std::vector<std::string> & values ) = 0;
 
     // 执行删除语句
     virtual void remove(
@@ -65,6 +69,11 @@ public :
     virtual void insert(
             uint8_t index,
             const std::string & sqlcmd,
+            IDBResult * result, uint32_t timeout ) = 0;
+    virtual void insert(
+            uint8_t index,
+            const std::string & sqlcmd,
+            const std::vector<std::string> & values,
             IDBResult * result, uint32_t timeout ) = 0;
 
     // 执行查询语句
