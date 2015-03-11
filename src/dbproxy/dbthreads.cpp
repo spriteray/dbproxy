@@ -1,4 +1,6 @@
 
+#include <cstring>
+
 #include "utils/utility.h"
 #include "utils/timeutils.h"
 
@@ -186,13 +188,16 @@ void DBThread::insert( sid_t sid, uint32_t transid,
         return;
     }
 
-    std::string id;
-    Utils::Utility::snprintf( id, 32, "%lu", insertid );
+    if ( transid != 0 )
+    {
+        std::string id;
+        Utils::Utility::snprintf( id, 32, "%lu", insertid );
 
-    // 返回结果给dbclient
-    msg::proxy::MessageAutoIncrement msg;
-    msg.set_insertid( id );
-    g_AgentService->send( sid, transid, msg::proxy::eMessage_AutoIncrease, &msg );
+        // 返回结果给dbclient
+        msg::proxy::MessageAutoIncrement msg;
+        msg.set_insertid( id );
+        g_AgentService->send( sid, transid, msg::proxy::eMessage_AutoIncrease, &msg );
+    }
 }
 
 void DBThread::query( sid_t sid, uint32_t transid, const std::string & sqlcmd )

@@ -3,7 +3,6 @@
 #define __SRC_DBPROXY_DBENGINE_H__
 
 #include <string>
-
 #include <mysql/mysql.h>
 
 #include "define.h"
@@ -53,8 +52,6 @@ private :
         eDBEngine_ReadTimeout           = 5,    // 读超时时间
         eDBEngine_WriteTimeout          = 5,    // 写超时时间
     };
-
-    uint32_t escapeSqlcmd( const std::string & sqlcmd );
 
 private :
     std::string         m_Host;         // 主机地址

@@ -1,4 +1,6 @@
 
+#include <google/protobuf/message.h>
+
 #include "utils/file.h"
 #include "utils/transaction.h"
 
@@ -48,6 +50,7 @@ void ResultQueue::process( ClientImpl * client )
         }
 
         trans->onTrigger( iter->message );
+        delete iter->message;
         delete trans;
     }
 }

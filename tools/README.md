@@ -8,7 +8,7 @@ SQLBind是MySQL的表结构和C++对象的一个转换脚本。
 ## Usage
 
 修改sqlbind.py脚本中的数据库配置
-	
+
 	" HOST - MySQL的服务器地址 "
 	" USERNAME - 访问数据库的用户名 "
 	" PASSWORD - 访问数据库的密码 "
@@ -17,5 +17,4 @@ SQLBind是MySQL的表结构和C++对象的一个转换脚本。
 
 修改正确后
 
-	" >python sqlbind.py <C++代码目录>" 
-
+	" >python sqlbind.py <C++代码目录>"
