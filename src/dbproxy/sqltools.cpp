@@ -3,33 +3,28 @@
 
 #include "sqltools.h"
 
+// INSERT xxx ( `id`, `sender`, `content` ) VALUES ( 1234, 'lei.zhang', '?' ) ON DUPLICATE KEY UPDATE `sender`='lei.zhang', `content`='?'"
+
 bool SqlTools::sqlbind( std::string & sqlcmd,
         const std::string & from, const std::vector<std::string> & values )
 {
-    size_t pos = 0;
+    size_t index = 0;
 
     for ( size_t i = 0; i < from.size(); ++i )
     {
-        if ( from[i] != '%' )
+        if ( from[i] != '?' )
         {
             sqlcmd.push_back( from[i] );
             continue;
         }
 
-        // 记录位置
-        pos = ++i;
-        // 查找匹配的%
-        for ( ; from[i] != '%'; ++i );
-
-        // 计算下标
-        uint32_t id = std::atoi( std::string(from, pos, i-pos).c_str() );
-        if ( id > values.size() )
+        if ( index >= values.size() )
         {
-            sqlcmd = "";
+            sqlcmd.clear();
             return false;
         }
 
-        sqlcmd += values[ id-1 ];
+        sqlcmd += values[ index++ ];
     }
 
     return true;

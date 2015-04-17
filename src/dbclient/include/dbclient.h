@@ -52,6 +52,7 @@ public :
     virtual void schedule() = 0;
 
     // 执行更新语句
+    // 需要转义的字段在SQL中?占位
     virtual void update(
             uint8_t index,
             const std::string & sqlcmd ) = 0;
@@ -66,6 +67,7 @@ public :
             const std::string & sqlcmd ) = 0;
 
     // 执行插入语句
+    // 需要转义的字段在SQL中?占位
     virtual void insert(
             uint8_t index,
             const std::string & sqlcmd,
