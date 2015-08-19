@@ -20,25 +20,21 @@ public :
     IThread();
     virtual ~IThread();
 
-public :
     virtual bool onStart() = 0;
     virtual void onExecute() = 0;
     virtual void onStop() = 0;
 
 public :
-    pthread_t id() const;
-    bool isRunning() const;
-
-    void setDetach();
-    void setStackSize( uint32_t size );
-
     bool start();
-    void stop( bool iswait = true );
-    void wait();
+    void stop();
 
-public :
-    void notify();
     static bool check( pthread_t id );
+
+    pthread_t id() const { return m_ThreadID; }
+    bool isRunning() const { return m_Status == eRunning; }
+
+    void setDetach() { m_IsDetach = true; }
+    void setStackSize( uint32_t size ) { m_StackSize = size; }
 
 private :
     enum
@@ -49,6 +45,7 @@ private :
         eStoped     = 3,
     };
 
+    void notify();
     static void * threadfunc( void * arg );
 
 private :

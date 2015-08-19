@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <stdarg.h>
 
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -45,6 +46,72 @@ struct Buffer
         offsets     = 0;
     };
 };
+
+int32_t get_date( int64_t & now, struct tm & tm_now )
+{
+    struct timeval tv;
+
+    if ( ::gettimeofday(&tv, NULL) == 0 )
+    {
+        now = tv.tv_sec*1000+tv.tv_usec/1000;
+    }
+
+    time_t now_seconds = now / 1000;
+
+    localtime_r( &now_seconds, &tm_now );
+    return (tm_now.tm_year+1900)*10000+(tm_now.tm_mon+1)*100+tm_now.tm_mday;
+}
+
+void fmtprefix( std::string & prefix, const char * format, uint8_t level, int64_t now, struct tm * tm_now )
+{
+    const char *loglevel_desc[] =
+    {
+        "Fatal", "Error", "Warn",
+        "Info", "Trace", "Debug"
+    };
+
+    int64_t mseconds = now % 1000;
+
+    for( ; *format; ++format )
+    {
+        if ( *format != '%' )
+        {
+            prefix += *format;
+            continue;
+        }
+
+        switch ( *++format )
+        {
+            case '\0' :
+                --format;
+                break;
+
+            case 'l' :
+            case 'L' :
+                prefix += loglevel_desc[ level-1 ];
+                break;
+
+            case 't' :
+                {
+                    char date[ 32 ];
+                    strftime( date, 31, "%F %T", tm_now );
+                    prefix += date;
+                }
+                break;
+
+            case 'T' :
+                {
+                    char date[ 32 ];
+                    strftime( date, 31, "%F %T", tm_now );
+                    prefix += date;
+                    // 毫秒数
+                    snprintf( date, 16, ".%03ld", mseconds );
+                    prefix += date;
+                }
+                break;
+        }
+    }
+}
 
 //
 // 日志记录器
@@ -85,7 +152,7 @@ public :
 
 public :
     void open();
-    void flush();
+    void flush( bool sync = false );
     void append( const std::string & logline );
     void rotate();
 
@@ -107,7 +174,7 @@ Logger::Logger( LogFile * file )
 Logger::~Logger()
 {
     // 刷新日志到文件中
-    this->flush();
+    this->flush( true );
 
     // 关闭文件
     if ( m_Fd != -1 )
@@ -153,11 +220,9 @@ void Logger::initialize( int32_t today, bool isinit )
 
 int32_t Logger::getToday()
 {
+    int64_t now = 0;
     struct tm tm_now;
-    time_t now = time(NULL);
-    localtime_r( &now, &tm_now );
-
-    return (tm_now.tm_year+1900)*10000+(tm_now.tm_mon+1)*100+tm_now.tm_mday;
+    return get_date( now, tm_now );
 }
 
 size_t Logger::getBlockSize()
@@ -239,8 +304,8 @@ void Logger::append( const std::string & logline )
     if ( size >= m_Size )
     {
         // 太长的日志行不进行缓冲直接写日志文件
+        // NOTICE: 让操作系统自己去刷新硬盘缓存
         ::write( m_Fd, data, size );
-        ::fsync( m_Fd );
     }
     else
     {
@@ -250,7 +315,7 @@ void Logger::append( const std::string & logline )
     }
 }
 
-void Logger::flush()
+void Logger::flush( bool sync )
 {
     if ( getOffset() == 0 )
     {
@@ -275,7 +340,14 @@ void Logger::flush()
 
     // 把日志缓冲区的日志落地到已经存在的日志文件中去
     ::write( m_Fd, m_Buffer->buffer, m_Buffer->offsets );
-    ::fsync( m_Fd );
+
+    // 是否需要刷新到文件中
+    // NOTICE: fsync()调用需要10ms左右, 所以不要经常调用
+    if ( sync )
+    {
+        ::fsync( m_Fd );
+    }
+
     m_Buffer->offsets = 0;
 
     // 只有flush的情况下, 才会引发文件大小的改变
@@ -297,6 +369,7 @@ void Logger::rotate()
     getIndexPath( newfile );
 
     // 关闭文件
+    ::fsync( m_Fd );
     ::close( m_Fd );
 
     // 重命名文件, 以及增加文件索引号
@@ -382,47 +455,73 @@ void LogFile::print( uint8_t level, const char * format, ... )
         return;
     }
 
-    // 日志数据
-    int32_t ndata = 0;
-    char * data = NULL;
+    // 时间
+    int64_t now = 0;
+    struct tm tm_now;
+    int32_t today = get_date( now, tm_now );
 
+    // 内容
+    int32_t ncontent = 0;
+    char * content = NULL;
     va_list args;
     va_start( args, format );
-    ndata = vasprintf( &data, format, args );
+    ncontent = vasprintf( &content, format, args );
     va_end( args );
 
-    // 日志行
-    int32_t today = 0;
-    std::string logline( ndata+128, 0 );
-    spliceLogline( level,
-            today, const_cast<char *>(data), logline );
-    std::free( data );
+    // 写日志
+    this->print( level, today, "", std::string(content, ncontent) );
 
-    // 加锁写日志
-    m_Lock->lock();
+    // 释放日志数据
+    std::free( content );
+}
 
-    // 日志文件是否隔天了
-    if ( today != m_Logger->getDate() )
+void LogFile::printp( uint8_t level, const char * prefix, const char * format, ... )
+{
+    // 过滤非法日志等级
+    if ( level > eLogLevel_Debug )
     {
-        // 创建当天的日志记录器
-        delete m_Logger;
-        m_Logger = new Logger( this );
-        assert( m_Logger != NULL && "create Logger failed" );
-        m_Logger->initialize( today, false );
+        return;
     }
 
-    // 写日志
-    // 轮换日志文件在append()中发生
-    m_Logger->append( logline );
+    // 日志等级的判断
+    if ( m_Logger->getLevel() != 0
+            && level > m_Logger->getLevel() )
+    {
+        // 不加锁对最低的日志等级的判断,
+        // 有可能引发的顺序问题可以不做考虑
+        // 最坏的情况就是
+        // 改变日志等级一瞬间的部分日志信息没有记录下来, 这很严重吗?
+        return;
+    }
 
-    // 解锁
-    m_Lock->unlock();
+    // 时间
+    int64_t now = 0;
+    struct tm tm_now;
+    int32_t today = get_date( now, tm_now );
+
+    // head
+    std::string head;
+    fmtprefix( head, prefix, level, now, &tm_now );
+
+    // body
+    int32_t nbody = 0;
+    char * body = NULL;
+    va_list args;
+    va_start( args, format );
+    nbody = vasprintf( &body, format, args );
+    va_end( args );
+
+    // 写日志
+    this->print( level, today, head, std::string(body, nbody) );
+
+    // 释放日志数据
+    std::free( body );
 }
 
 void LogFile::flush()
 {
     m_Lock->lock();
-    m_Logger->flush();
+    m_Logger->flush( true );
     m_Lock->unlock();
 }
 
@@ -471,6 +570,36 @@ void LogFile::close()
     }
 }
 
+void LogFile::print( uint8_t level, int32_t today,
+        const std::string & head, const std::string & body )
+{
+    // 加锁写日志
+    m_Lock->lock();
+
+    // 日志文件是否隔天了
+    if ( today != m_Logger->getDate() )
+    {
+        // 创建当天的日志记录器
+        delete m_Logger;
+        m_Logger = new Logger( this );
+        assert( m_Logger != NULL && "create Logger failed" );
+        m_Logger->initialize( today, false );
+    }
+
+    // 写日志
+    // 轮换日志文件在append()中发生
+    m_Logger->append( head + body );
+
+    // 如果是FATAL直接刷新日志
+    if ( level == eLogLevel_Fatal )
+    {
+        m_Logger->flush();
+    }
+
+    // 解锁
+    m_Lock->unlock();
+}
+
 void LogFile::ensure_keyfiles_exist( char * file1, char * file2 )
 {
     std::snprintf( file1, PATH_MAX,
@@ -481,46 +610,6 @@ void LogFile::ensure_keyfiles_exist( char * file1, char * file2 )
     // 确保文件存在
     ::close ( ::open(file1, O_WRONLY|O_CREAT, 0644) );
     ::close ( ::open(file2, O_WRONLY|O_CREAT, 0644) );
-}
-
-// 拼接日志行
-// 鉴于localtime_r()非常低效,
-// 所以还是增加了today这个从设计上来说很ugly的参数
-void LogFile::spliceLogline( uint8_t level,
-        int32_t & today, const char * data, std::string & logline )
-{
-    const char *loglevel_desc[] =
-    {
-        "Fatal", "Error", "Warn",
-        "Info", "Trace", "Debug"
-    };
-
-    // 前缀
-    char * prefix = (char *)( logline.c_str() );
-
-    // 时间
-    struct tm tm_now;
-    time_t now = time(NULL);
-    localtime_r( &now, &tm_now );
-
-    // 计算今天的日期
-    today = (tm_now.tm_year+1900)*10000+(tm_now.tm_mon+1)*100+tm_now.tm_mday;
-
-    // 日志前缀
-    int32_t nprefix = strftime( prefix, 128, "%Y-%m-%d %H:%M:%S ", &tm_now );
-    if ( level == 0 )
-    {
-        std::strcat( prefix, ": " );
-        nprefix += 2;
-    }
-    else
-    {
-        nprefix += std::sprintf( prefix+nprefix, "[%s]\t : ", loglevel_desc[level-1] );
-    }
-
-    // 设置logline的长度
-    logline.resize( nprefix );
-    logline += data;
 }
 
 }

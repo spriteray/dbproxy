@@ -14,6 +14,11 @@ DBEngine::~DBEngine()
 void DBEngine::selectdb( const std::string & database )
 {
     m_Database = database;
+
+    if ( m_DBHandler != NULL )
+    {
+        mysql_select_db( m_DBHandler, m_Database.c_str() );
+    }
 }
 
 void DBEngine::setCharsets( const std::string & charsets )

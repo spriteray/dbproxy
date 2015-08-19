@@ -4,6 +4,9 @@
 #include <sys/ipc.h>
 #include <sys/sem.h>
 #include <sys/shm.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <fcntl.h>
 
 #include "hashfunc.h"
 #include "ipcs.h"
@@ -26,14 +29,14 @@ namespace Utils
 CSemlock::CSemlock( const char * keyfile )
     : m_IsOwner(false),
       m_SemId(-1),
-      m_KeyFile(keyfile)
+      m_Keyfile(keyfile)
 {}
 
 CSemlock::~CSemlock()
 {
     m_IsOwner = false;
     m_SemId = -1;
-    m_KeyFile.clear();
+    m_Keyfile.clear();
 }
 
 bool CSemlock::init()
@@ -42,11 +45,11 @@ bool CSemlock::init()
 
     m_IsOwner = true;
 
-    if ( !m_KeyFile.empty() )
+    if ( !m_Keyfile.empty() )
     {
-        int32_t projectid = (int32_t)HashFunction::djb( m_KeyFile.c_str(), m_KeyFile.length() );
+        int32_t projectid = (int32_t)HashFunction::djb( m_Keyfile.c_str(), m_Keyfile.length() );
 
-        semkey = ::ftok( const_cast<char*>(m_KeyFile.c_str()), projectid );
+        semkey = ::ftok( const_cast<char*>(m_Keyfile.c_str()), projectid );
         if ( semkey == -1 )
         {
             return false;
@@ -142,8 +145,8 @@ void CSemlock::unlock()
     struct sembuf sem_off;
 
     sem_off.sem_num     = 0;
-    sem_off.sem_op        = 1;
-    sem_off.sem_flg        = SEM_UNDO;
+    sem_off.sem_op      = 1;
+    sem_off.sem_flg     = SEM_UNDO;
 
     do
     {
@@ -167,10 +170,14 @@ bool CSemlock::isOwner() const
     return m_IsOwner;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
 CShmem::CShmem( const char * keyfile )
     : m_IsOwner(true),
       m_ShmId(-1),
-      m_KeyFile(keyfile)
+      m_Keyfile(keyfile)
 {}
 
 CShmem::~CShmem()
@@ -181,14 +188,14 @@ bool CShmem::alloc( size_t size )
     key_t shmkey = -1;
     int32_t projectid = 0;
 
-    if ( m_KeyFile.empty() )
+    if ( m_Keyfile.empty() )
     {
         m_ShmId = ::shmget( IPC_PRIVATE, size, IPC_CREAT );
         goto ALLOCATE_RESULT;
     }
 
-    projectid = (int32_t)HashFunction::djb( m_KeyFile.c_str(), m_KeyFile.length() );
-    shmkey = ::ftok( const_cast<char *>(m_KeyFile.c_str()), projectid );
+    projectid = (int32_t)HashFunction::djb( m_Keyfile.c_str(), m_Keyfile.length() );
+    shmkey = ::ftok( const_cast<char *>(m_Keyfile.c_str()), projectid );
     if ( shmkey == -1 )
     {
         goto ALLOCATE_RESULT;
@@ -251,6 +258,105 @@ void CShmem::unlink( void * ptr )
 bool CShmem::isOwner() const
 {
     return m_IsOwner;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+CMmapAllocator::CMmapAllocator( const char * keyfile )
+    : m_IsOwner( false ),
+      m_Size( 0ULL ),
+      m_Keyfile( keyfile )
+{}
+
+CMmapAllocator::~CMmapAllocator()
+{}
+
+void * CMmapAllocator::alloc( size_t size )
+{
+    int32_t fd = ::open( m_Keyfile.c_str(), O_RDWR );
+    if ( fd < 0 )
+    {
+        // 没有权限
+        if ( errno != ENOENT )
+        {
+            return NULL;
+        }
+
+        // 文件不存在, 新建文件
+        fd = ::open( m_Keyfile.c_str(), O_RDWR|O_CREAT, 0666 );
+        if ( fd < 0 )
+        {
+            return NULL;
+        }
+
+        // 默认填充
+        m_IsOwner = true;
+        this->padding( fd, 0, size );
+    }
+
+    // 确保文件足够大
+    if ( !this->ensureSpace( fd, size ) )
+    {
+        ::close( fd );
+        return NULL;
+    }
+
+    // 映射
+    void * result = NULL;
+    result = ::mmap( 0, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0 );
+    if ( result == MAP_FAILED )
+    {
+        ::close( fd );
+        return NULL;
+    }
+
+    // 关闭文件
+    ::close( fd );
+    m_Size = size;
+
+    return result;
+}
+
+void CMmapAllocator::free( void * ptr )
+{
+    ::munmap( ptr, m_Size );
+}
+
+bool CMmapAllocator::ensureSpace( int32_t fd, size_t size )
+{
+    struct stat filestat;
+
+    // 判断文件大小
+    if ( ::fstat( fd, &filestat ) != 0 )
+    {
+        return false;
+    }
+
+    if ( (size_t)filestat.st_size > size )
+    {
+        return false;
+    }
+
+    // 扩充
+    this->padding( fd, filestat.st_size, size );
+    return true;
+}
+
+void CMmapAllocator::padding( int32_t fd, size_t offset, size_t size )
+{
+    char buffer[ 1024 ] = { 0 };
+
+    // 默认填充
+    for ( size_t i = offset; i < size; i += sizeof(buffer) )
+    {
+        ::write( fd, buffer, sizeof(buffer) );
+    }
+
+    // 重置
+    ::ftruncate( fd, size );
+    ::lseek( fd, 0, SEEK_SET );
 }
 
 }

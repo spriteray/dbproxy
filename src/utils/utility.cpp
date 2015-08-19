@@ -32,6 +32,7 @@ bool Utility::mkdirp( const char * path )
     if ( p[ len-1 ] != '/' )
     {
         p[ len ] = '/';
+        len = len + 1;
     }
 
     for ( int32_t i = 1; i < len; ++i )
@@ -61,6 +62,59 @@ void Utility::trim( std::string & str )
     str.erase( str.find_last_not_of(" ") + 1 );
 }
 
+char * Utility::strsep( char ** s, const char *del )
+{
+    char * d, * tok;
+
+    if ( !s || !*s )
+    {
+        return NULL;
+    }
+
+    tok = *s;
+    d = std::strstr( tok, del );
+
+    if ( d )
+    {
+        *s = d + std::strlen( del );
+        *d = '\0';
+    }
+    else
+    {
+        *s = NULL;
+    }
+
+    return tok;
+}
+
+void Utility::randstring( size_t len, std::string & value )
+{
+    int32_t type = 0;
+
+    // 清空字符串
+    value.clear();
+
+    for ( size_t i = 0; i < len; ++i )
+    {
+        type = g_Generate.rand() % 3;
+
+        switch ( type )
+        {
+            case 0 :
+                value.push_back( (char)( g_Generate.rand()%26 + 'a' ) );
+                break;
+
+            case 1 :
+                value.push_back( (char)( g_Generate.rand()%26 + 'A' ) );
+                break;
+
+            case 2 :
+                value.push_back( (char)( g_Generate.rand()%10 + '0' ) );
+                break;
+        }
+    }
+}
+
 int32_t Utility::snprintf( std::string & str, size_t size, const char * format, ... )
 {
     str.resize( size );
@@ -76,6 +130,34 @@ int32_t Utility::snprintf( std::string & str, size_t size, const char * format, 
     va_end( args );
 
     return rc;
+}
+
+bool Utility::replace( std::string & dst,
+        const std::string & src, const std::string & sub, const std::vector<std::string> & values )
+{
+    size_t index = 0;
+
+    for ( size_t i = 0; i < src.size(); )
+    {
+        if ( src.substr( i, sub.size() ) != sub )
+        {
+            // 没有匹配
+            // TODO: 此处可以参考KMP算法进行优化
+            dst.push_back( src[i++] );
+            continue;
+        }
+
+        if ( index >= values.size() )
+        {
+            dst.clear();
+            return false;
+        }
+
+        i += sub.size();
+        dst += values[ index++ ];
+    }
+
+    return true;
 }
 
 }

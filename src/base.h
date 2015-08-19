@@ -16,9 +16,7 @@ extern RunStatus                g_RunStatus;
 extern Utils::LogFile *         g_Logger;
 
 // 日志宏定义
-#define LOGGER( level, ... )    g_Logger->print( level, __VA_ARGS__ )
-
-#define LOG( ... )              LOGGER( 0, __VA_ARGS__ )
+#define LOGGER( level, ... )    g_Logger->printp( level, "%T [%L]\t : ", __VA_ARGS__ )
 #define LOG_FATAL( ... )        LOGGER( Utils::LogFile::eLogLevel_Fatal, __VA_ARGS__ )
 #define LOG_ERROR( ... )        LOGGER( Utils::LogFile::eLogLevel_Error, __VA_ARGS__ )
 #define LOG_WARN( ... )         LOGGER( Utils::LogFile::eLogLevel_Warn, __VA_ARGS__ )

@@ -63,7 +63,7 @@ void CProxyServer::onExecute()
 {
     if ( !m_DBThreads->check() )
     {
-        this->stop( false );
+        this->stop();
         return;
     }
 

@@ -16,7 +16,7 @@
 LIBSO 			= libdbclient
 
 PRODUCT 		= DBClientLibrary
-VERSION			= 0.2.2
+VERSION			= 0.2.3
 
 DEPEND_LIBS		= libevlite.so \
 				  libprotobuf.so \

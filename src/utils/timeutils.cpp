@@ -77,7 +77,13 @@ int32_t TimeUtils::getTime()
     return rc;
 }
 
-time_t TimeUtils::getZeroTimestamp()
+int32_t TimeUtils::getWeekday()
+{
+    this->getTimeStruct();
+    return m_TimeStruct.tm_wday;
+}
+
+time_t TimeUtils::getZeroClockTimestamp()
 {
     getTimeStruct();
 
@@ -87,9 +93,9 @@ time_t TimeUtils::getZeroTimestamp()
     return ::mktime( &zero_timestamp );
 }
 
-time_t TimeUtils::getNextZeroTimestamp()
+time_t TimeUtils::getNextZeroClockTimestamp()
 {
-    return (this->getZeroTimestamp()+24*60*60);
+    return this->getZeroClockTimestamp() + eSeconds_OneDay;
 }
 
 time_t TimeUtils::getSpecifiedTimestamp( const char * s )

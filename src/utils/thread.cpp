@@ -22,32 +22,13 @@ IThread::IThread()
 
 IThread::~IThread()
 {
-    m_Status    = eReady;
-    m_IsDetach  = false;
-    m_StackSize = 0;
-    m_ThreadID  = 0;
+    if ( !m_IsDetach )
+    {
+        pthread_join( m_ThreadID, NULL );
+    }
+
     pthread_cond_destroy( &m_CtrlCond );
     pthread_mutex_destroy( &m_CtrlLock );
-}
-
-pthread_t IThread::id() const
-{
-    return m_ThreadID;
-}
-
-bool IThread::isRunning() const
-{
-    return ( m_Status == eRunning );
-}
-
-void IThread::setDetach()
-{
-    m_IsDetach = true;
-}
-
-void IThread::setStackSize( uint32_t size )
-{
-    m_StackSize = size;
 }
 
 bool IThread::start()
@@ -73,28 +54,20 @@ bool IThread::start()
     return ( rc == 0 );
 }
 
-void IThread::stop( bool iswait )
+void IThread::stop()
 {
     pthread_mutex_lock( &m_CtrlLock );
 
-    if ( m_Status != eStoped )
+    if ( m_Status == eReady )
+    {
+        m_Status = eStoped;
+    }
+    else if ( m_Status == eRunning )
     {
         m_Status = eStoping;
     }
 
-    while ( iswait && m_Status != eStoped )
-    {
-        pthread_cond_wait( &m_CtrlCond, &m_CtrlLock );
-    }
-
-    pthread_mutex_unlock( &m_CtrlLock );
-}
-
-void IThread::wait()
-{
-    pthread_mutex_lock( &m_CtrlLock );
-
-    while ( m_Status != eStoped )
+    while ( m_Status != eStoped && pthread_self() != m_ThreadID )
     {
         pthread_cond_wait( &m_CtrlCond, &m_CtrlLock );
     }

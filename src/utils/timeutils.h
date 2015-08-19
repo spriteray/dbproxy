@@ -37,11 +37,14 @@ public :
     // 10:10:58 101058
     int32_t getTime();
 
-    // 获取凌晨零点的时间
-    time_t getZeroTimestamp();
+    // 获取星期几
+    int32_t getWeekday();
 
-    // 获取下一天零点的时间
-    time_t getNextZeroTimestamp();
+    // 获取默认0点的时间戳
+    time_t getZeroClockTimestamp();
+
+    // 获取下一天0点的时间戳
+    time_t getNextZeroClockTimestamp();
 
     // 获取当天指定时间点的时间戳
     // 10:00:00

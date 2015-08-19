@@ -23,6 +23,9 @@ public :
     // 去除空格
     static void trim( std::string & str );
 
+    // strsep
+    static char * strsep( char ** s, const char * del );
+
     // 随机排序
     template<class T>
         static void shuffle( std::vector<T> & array )
@@ -38,8 +41,15 @@ public :
             return;
         }
 
+    // 随机字符串
+    static void randstring( size_t len, std::string & value );
+
     // 字符串sprintf
     static int32_t snprintf( std::string & dst, size_t size, const char * format, ... );
+
+    // 替换字符串
+    static bool replace( std::string & dst,
+            const std::string & src, const std::string & sub, const std::vector<std::string> & values );
 
 private :
     static RandomDevice g_Device;
